@@ -58,7 +58,8 @@ interface ICreatePersonParams {
 }
 
 interface IContext {
-	id: string;
+	// id: string;
+	previousPerson: IPerson | undefined;
 }
 
 const CreatePage: FC = () => {
@@ -78,9 +79,21 @@ const CreatePage: FC = () => {
 			async ({ id, name, age }) => createPerson(id, name, age),
 			{
 				// before mutation
-				onMutate: (variables: ICreatePersonParams) => {
-					console.log('mutation variables', variables);
-					return { id: '7' };
+				onMutate: async (_variables: ICreatePersonParams) => {
+					// console.log('mutation variables', variables);
+					// return { id: '7' };
+					// Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+					await queryClient.cancelQueries('person');
+
+					// Snapshot the previous value
+					const previousPerson: IPerson | undefined =
+						queryClient.getQueryData('person');
+
+					queryClient.setQueryData('person', previousPerson);
+
+					// Return a context object with the snapshotted value
+					// return { person: previousPerson };
+					return { previousPerson };
 				},
 				// on success of mutation
 				onSuccess: (
@@ -99,8 +112,12 @@ const CreatePage: FC = () => {
 					context: IContext | undefined
 				) => {
 					console.log('error: ', error.message);
+					// return console.log(
+					// 	`rolling back optimistic update with id: ${context?.id}`
+					// );
+					queryClient.setQueryData('person', context?.previousPerson);
 					return console.log(
-						`rolling back optimistic update with id: ${context?.id}`
+						`rolling back optimistic update with id: ${context?.previousPerson?.id}`
 					);
 				},
 				// no matter if error or success run me
